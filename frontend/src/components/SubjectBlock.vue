@@ -1,10 +1,17 @@
 <script setup>
+import {useTreeStore} from "@/stores/tree.store";
+const treeStore = useTreeStore();
+
 window.onscroll = function() {
-  var treeButtonElement = this.document.getElementById("treeButton");
-  var treeBrowserElement = this.document.getElementById("treeBrowser");
-  var scrollTop = document.documentElement.scrollTop;
-  treeButtonElement.style.transform = "translateY(" + scrollTop + "px)";
-  treeBrowserElement.style.transform = "translateY(" + scrollTop + "px)"
+  let treeButtonElement = this.document.getElementById("treeButton");
+  let treeBrowserElement = this.document.getElementById("treeBrowser");
+  let scrollTop = document.documentElement.scrollTop;
+  let articleWindow = this.document.getElementById("articleWindow");
+
+  if ((document.documentElement.scrollTop || document.body.scrollTop) - articleWindow.offsetHeight + treeBrowserElement.offsetHeight < 0) {
+    treeButtonElement.style.transform = "translateY(" + scrollTop + "px)";
+    treeBrowserElement.style.transform = "translateY(" + scrollTop + "px)";
+  }
 };
 
 </script>
@@ -20,7 +27,7 @@ window.onscroll = function() {
       rounded-lg
       p-5
     "
-    v-show="!isTreeVisible"
+    v-show="!treeStore.isTreeVisible"
   >
     <p class="text-center text-2xl">{{ listName }}</p>
 
@@ -38,7 +45,7 @@ window.onscroll = function() {
     >
       <subject-block-node
         @showTree="
-          isTreeVisible = true;
+          treeStore.isTreeVisible = true
           setArticleToShow($event);
           updateRoute();
           this.findFullRoute(this.treeData, this.ArticleToShow.slug)
@@ -54,7 +61,8 @@ window.onscroll = function() {
   <!-- Здесь колхоз надо поправить (absolute top-[500px] left-[0px]) -->
   <div
     id="treeButton"
-    v-show="isTreeVisible">
+    v-show="treeStore.isTreeVisible"
+  >
     <button
         type="button"
         class="
@@ -72,6 +80,7 @@ window.onscroll = function() {
   </div>
 
   <div
+    id="articleWindow"
     class="
       container
       grid
@@ -84,30 +93,32 @@ window.onscroll = function() {
       border-gray-300
       rounded-lg
     "
-    v-show="isTreeVisible"
+    v-show="treeStore.isTreeVisible"
   >
-    <!-- Здесь колхоз надо поправить (max-h-[500px]]) -->
-    <div
-      id="treeBrowser"
-      class="
-        mx-auto
-        col-span-1
-        max-h-[500px]
-        md:block"
-      v-if="fullRoute.length > 0"
-      v-bind:class="{'hidden col-span-1': !showPopupTree, 'col-span-4': showPopupTree}"
-    >
-      <div class="mr-0">
-        <tree-browser
-          @changeArticle="
-            setArticleToShow($event);
-            updateRoute()
-          "
-          v-for="child in this.treeData"
-            :key="child.title"
-            :node="child"
-            :path-array="fullRoute"
-        ></tree-browser>
+    <!-- Здесь колхоз надо поправить -->
+    <div>
+      <div
+        id="treeBrowser"
+        class="
+          mx-auto
+          col-span-1
+          md:block
+        "
+        v-if="fullRoute.length > 0"
+        v-bind:class="{'hidden col-span-1': !showPopupTree, 'col-span-4': showPopupTree}"
+      >
+        <div class="mr-0">
+          <tree-browser
+            @changeArticle="
+              setArticleToShow($event);
+              updateRoute()
+            "
+            v-for="child in this.treeData"
+              :key="child.title"
+              :node="child"
+              :path-array="fullRoute"
+          ></tree-browser>
+        </div>
       </div>
     </div>
 
@@ -132,6 +143,7 @@ import subjectBlockNode from "@/components/SubjectBlockNode.vue";
 import treeBrowser from "@/components/TreeBrowser.vue";
 import articleBlock from "@/components/ArticleBlock.vue";
 import axios from "axios";
+import {useTreeStore} from "@/stores/tree.store";
 
 export default {
   components: {subjectBlockNode, treeBrowser, articleBlock},
@@ -139,7 +151,8 @@ export default {
   name: "subject-block",
 
   props: {
-    listName: String},
+    listName: String
+  },
 
   data() {
     return {
@@ -147,10 +160,10 @@ export default {
       urlArticle: 'http://127.0.0.1:8000/api/web/v1/articles/',
       treeData: [],
       errors: [],
-      isTreeVisible: false,
       ArticleToShow: Object,
       fullRoute: [],
       showPopupTree: false,
+      windowWidth: window.innerWidth,
     }
   },
 
@@ -161,8 +174,20 @@ export default {
       if (this.$route.params.slug.length > 0){
         await this.fetchArticle(this.urlArticle, this.$route.params.slug)
         this.findFullRoute(this.treeData, this.$route.params.slug[0])
-        this.isTreeVisible = true
+
+        useTreeStore().isTreeVisible = true
       }
+  },
+
+  mounted() {
+    this.$nextTick(() => {
+      window.addEventListener('resize', this.onResize);
+    })
+  },
+
+  beforeDestroy() {
+    // Убедиться что это нужно
+    window.removeEventListener('resize', this.onResize);
   },
 
   methods: {
@@ -208,6 +233,12 @@ export default {
       this.showPopupTree = !this.showPopupTree;
     },
 
+    onResize() {
+      this.windowWidth = window.innerWidth
+      if (this.windowWidth > 768)
+        this.showPopupTree = false;
+    }
+
   },
 
   watch: {
@@ -217,8 +248,12 @@ export default {
         this.findFullRoute(this.treeData, this.$route.params.slug[0])
       }
       else {
-        this.isTreeVisible = false
+        useTreeStore().isTreeVisible = false
       }
+    },
+
+    ArticleToShow: function() {
+      this.showPopupTree = false;
     }
   },
 
