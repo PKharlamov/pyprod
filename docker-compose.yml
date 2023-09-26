@@ -5,17 +5,17 @@ services:
     container_name: nginx
     build:
       context: .
-      dockerfile: ./docker_build/nginx/Dockerfile
+      dockerfile: docker/nginx/Dockerfile
     ports:
       - "8001:80"
     extra_hosts:
       - ${host_docker_internal:-host_docker_internal}:host-gateway
 
-  front:
-    container_name: front
+  frontend:
+    container_name: frontend
     build:
       context: ./frontend
-      dockerfile: ../docker_build/front/Dockerfile
+      dockerfile: docker/front/Dockerfile
     ports:
       - "3000:3000"
 #    volumes:
@@ -31,7 +31,7 @@ services:
 
   postgres:
     container_name: postgres
-    build: ./docker_build/postgres
+    build: docker/postgres
     ports:
       - "5432:5432"
     volumes:
@@ -42,28 +42,11 @@ services:
       - POSTGRES_DB=pyprod
     restart: on-failure
 
-  back:
-    container_name: back
+  backend:
+    container_name: backend
     build:
       context: .
-      dockerfile: ./docker_build/back/Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./:/pyprod/
-    depends_on:
-      - postgres
-      - nginx
-    env_file: .env
-    extra_hosts:
-      - ${host_docker_internal:-host_docker_internal}:host-gateway
-    command: python manage.py runserver 0.0.0.0:8000
-
-  back_fastapi:
-    container_name: back_fastapi
-    build:
-      context: .
-      dockerfile: ./docker_build/back_fastapi/Dockerfile
+      dockerfile: docker/backend/Dockerfile
     ports:
       - "8000:8000"
     volumes:
